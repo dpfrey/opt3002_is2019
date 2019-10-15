@@ -2,6 +2,7 @@
 #include <linux/kernel.h>
 #include <linux/device.h>
 #include <linux/i2c.h>
+#include <linux/delay.h>
 
 /*
  * Texas Instruments OPT3002 Ambient Light Sensor driver
@@ -16,6 +17,10 @@
 
 #define OPT3002_MANUFACTURER_ID		0x5449
 
+#define OPT3002_CFG_CRF_SHIFT		7
+#define OPT3002_CFG_CRF_WIDTH		1
+#define OPT3002_CFG_CRF_MASK		BIT(OPT3002_CFG_CRF_SHIFT)
+
 #define OPT3002_CFG_MODE_SHIFT		9
 #define OPT3002_CFG_MODE_WIDTH		2
 #define OPT3002_CFG_MODE_MASK		GENMASK(OPT3002_CFG_MODE_SHIFT + \
@@ -24,6 +29,72 @@
 #define OPT3002_CFG_MODE_SHUTDOWN	0x0
 #define OPT3002_CFG_MODE_SINGLE_SHOT	0x1
 #define OPT3002_CFG_MODE_CONTINUOUS	0x2
+
+#define OPT3002_CFG_CONV_TIME_SHIFT	11
+#define OPT3002_CFG_CONV_TIME_WIDTH	1
+#define OPT3002_CFG_CONV_TIME_MASK	BIT(OPT3002_CFG_CONV_TIME_SHIFT)
+#define OPT3002_CFG_CONV_TIME_100MS	0x0
+#define OPT3002_CFG_CONV_TIME_800MS	0x1
+
+#define OPT3002_CFG_RN_SHIFT		12
+#define OPT3002_CFG_RN_WIDTH		4
+#define OPT3002_CFG_RN_MASK		GENMASK(OPT3002_CFG_RN_SHIFT + \
+						(OPT3002_CFG_RN_WIDTH - 1), \
+						OPT3002_CFG_RN_SHIFT)
+#define OPT3002_CFG_RN_AUTO		0xC
+
+
+/*
+ * == TASK ==
+ * Read through the following function and understand the code that is required
+ * to perform a reading.
+ */
+s32 opt3002_perform_reading(struct i2c_client *client)
+{
+	u8 exp;
+	u16 frac;
+	s32 ret;
+	unsigned int retries;
+
+	/*
+	 * Configure the device for a single 800 ms sample with automatic range
+	 * selection.
+	 */
+	u16 cfg_reg = (
+		(OPT3002_CFG_MODE_SINGLE_SHOT << OPT3002_CFG_MODE_SHIFT) |
+		(OPT3002_CFG_CONV_TIME_800MS << OPT3002_CFG_CONV_TIME_SHIFT) |
+		(OPT3002_CFG_RN_AUTO << OPT3002_CFG_RN_SHIFT));
+	ret = i2c_smbus_write_word_swapped(client, OPT3002_REG_CONFIGURATION, cfg_reg);
+	if (ret < 0) {
+		dev_err(&client->dev, "Failed to write config register\n");
+		return ret;
+	}
+
+	for (retries = 0; retries < 5; retries++) {
+		msleep(800);
+		ret = i2c_smbus_read_word_swapped(client, OPT3002_REG_CONFIGURATION);
+		if (ret < 0)
+			continue;
+		if ((ret & OPT3002_CFG_CRF_MASK) != 0) {
+			break;
+		}
+	}
+
+	if (retries >= 5)
+		return -EBUSY;
+
+	ret = i2c_smbus_read_word_swapped(client, OPT3002_REG_RESULT);
+	if (ret < 0) {
+		dev_err(&client->dev, "Failed to read result register\n");
+		return ret;
+	}
+
+	/* See datasheet page 20: 6/5 comes from 1.2 constant */
+	exp = (ret >> 12);
+	frac = (ret & 0x0FFF);
+
+	return ((1 << exp) * 6 * frac) / 5;
+}
 
 int opt3002_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
@@ -44,6 +115,12 @@ int opt3002_probe(struct i2c_client *client, const struct i2c_device_id *id)
 			OPT3002_MANUFACTURER_ID, mfg_id);
 		return -ENODEV;
 	}
+
+	/*
+	 * == TASK ==
+	 * Use dev_info to print a single reading from the opt3002 light sensor
+	 * and observe that the value is printed when the module is loaded.
+	 */
 
 	return 0;
 }
