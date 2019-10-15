@@ -31,29 +31,7 @@ struct i2c_driver opt3002_driver = {
 		.name = "opt3002",
 	},
 };
-
-int __init opt3002_init(void)
-{
-	printk("Hello opt3002!\n");
-	return i2c_add_driver(&opt3002_driver);
-}
-module_init(opt3002_init);
-
-void __exit opt3002_exit(void)
-{
-	printk("Goodbye opt3002!\n");
-	i2c_del_driver(&opt3002_driver);
-}
-module_exit(opt3002_exit);
-
-/*
- * linux/i2c.h provides a convenience macro module_i2c_driver which covers the
- * common case where the init/exit of the module registers/deregisters an I2C
- * driver.
- *
- * == TASK ==
- * Use module_i2c_driver to remove the init/exit boilerplate.
- */
+module_i2c_driver(opt3002_driver);
 
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("David Frey <dfrey@sierrawireless.com>");
