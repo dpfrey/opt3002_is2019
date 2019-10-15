@@ -47,18 +47,9 @@
 struct opt3002 {
 	struct i2c_client *client;
 	struct device *dev;
-	/*
-	 * We introduce a mutex member associated with the device to prevent
-	 * simultaneous access to the device from multiple processes.
-	 */
 	struct mutex mutex;
 };
 
-/*
- * == TASK ==
- * Call mutex_lock() and mutex_unlock() at appropriate spots in this function to
- * ensure that it's locked during device access.
- */
 s32 opt3002_perform_reading(struct opt3002 *opt3002)
 {
 	u8 exp;
@@ -74,11 +65,17 @@ s32 opt3002_perform_reading(struct opt3002 *opt3002)
 		(OPT3002_CFG_MODE_SINGLE_SHOT << OPT3002_CFG_MODE_SHIFT) |
 		(OPT3002_CFG_CONV_TIME_800MS << OPT3002_CFG_CONV_TIME_SHIFT) |
 		(OPT3002_CFG_RN_AUTO << OPT3002_CFG_RN_SHIFT));
+	/* We lock the mutex here before the first I2C access */
+	mutex_lock(&opt3002->mutex);
 	ret = i2c_smbus_write_word_swapped(opt3002->client,
 					   OPT3002_REG_CONFIGURATION, cfg_reg);
 	if (ret < 0) {
 		dev_err(opt3002->dev, "Failed to write config register\n");
-		return ret;
+		/*
+		 * This used to be "return ret;", but now we need to make sure we
+		 * unlock the mutex before we return.
+		 */
+		goto done;
 	}
 
 	for (retries = 0; retries < 5; retries++) {
@@ -91,20 +88,26 @@ s32 opt3002_perform_reading(struct opt3002 *opt3002)
 		}
 	}
 
-	if (retries >= 5)
-		return -EBUSY;
+	if (retries >= 5) {
+		ret = -EBUSY;
+		goto done;
+	}
 
 	ret = i2c_smbus_read_word_swapped(opt3002->client, OPT3002_REG_RESULT);
 	if (ret < 0) {
 		dev_err(opt3002->dev, "Failed to read result register\n");
-		return ret;
+		goto done;
 	}
 
 	/* See datasheet page 20: 6/5 comes from 1.2 constant */
 	exp = (ret >> 12);
 	frac = (ret & 0x0FFF);
 
-	return ((1 << exp) * 6 * frac) / 5;
+	ret = ((1 << exp) * 6 * frac) / 5;
+
+done:
+	mutex_unlock(&opt3002->mutex);
+	return ret;
 }
 
 static ssize_t optical_power_show(struct device *dev,
