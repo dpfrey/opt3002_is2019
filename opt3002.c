@@ -43,8 +43,19 @@
 						OPT3002_CFG_RN_SHIFT)
 #define OPT3002_CFG_RN_AUTO		0xC
 
+/*
+ * Here we introduce a struct to hold device state
+ */
+struct opt3002 {
+	struct i2c_client *client;
+	struct device *dev;
+};
 
-s32 opt3002_perform_reading(struct i2c_client *client)
+/*
+ * Notice that the parameter to this function has changed from "struct
+ * i2c_client *client" to our new device type.
+ */
+s32 opt3002_perform_reading(struct opt3002 *opt3002)
 {
 	u8 exp;
 	u16 frac;
@@ -59,15 +70,16 @@ s32 opt3002_perform_reading(struct i2c_client *client)
 		(OPT3002_CFG_MODE_SINGLE_SHOT << OPT3002_CFG_MODE_SHIFT) |
 		(OPT3002_CFG_CONV_TIME_800MS << OPT3002_CFG_CONV_TIME_SHIFT) |
 		(OPT3002_CFG_RN_AUTO << OPT3002_CFG_RN_SHIFT));
-	ret = i2c_smbus_write_word_swapped(client, OPT3002_REG_CONFIGURATION, cfg_reg);
+	ret = i2c_smbus_write_word_swapped(opt3002->client,
+					   OPT3002_REG_CONFIGURATION, cfg_reg);
 	if (ret < 0) {
-		dev_err(&client->dev, "Failed to write config register\n");
+		dev_err(opt3002->dev, "Failed to write config register\n");
 		return ret;
 	}
 
 	for (retries = 0; retries < 5; retries++) {
 		msleep(800);
-		ret = i2c_smbus_read_word_swapped(client, OPT3002_REG_CONFIGURATION);
+		ret = i2c_smbus_read_word_swapped(opt3002->client, OPT3002_REG_CONFIGURATION);
 		if (ret < 0)
 			continue;
 		if ((ret & OPT3002_CFG_CRF_MASK) != 0) {
@@ -78,9 +90,9 @@ s32 opt3002_perform_reading(struct i2c_client *client)
 	if (retries >= 5)
 		return -EBUSY;
 
-	ret = i2c_smbus_read_word_swapped(client, OPT3002_REG_RESULT);
+	ret = i2c_smbus_read_word_swapped(opt3002->client, OPT3002_REG_RESULT);
 	if (ret < 0) {
-		dev_err(&client->dev, "Failed to read result register\n");
+		dev_err(opt3002->dev, "Failed to read result register\n");
 		return ret;
 	}
 
@@ -91,30 +103,80 @@ s32 opt3002_perform_reading(struct i2c_client *client)
 	return ((1 << exp) * 6 * frac) / 5;
 }
 
+/*
+ * The DEVICE_ATTR_RO convenience macro is used below to define the necessary
+ * struct that describes the read-only (RO) attribute named "optical_power". The
+ * function optical_power_show must have this exact name because the
+ * DEVICE_ATTR_RO(optical_power) macro initializes a struct named
+ * dev_attr_optical_power with a "show" function pointer member initialized to
+ * optical_power_show. This function is responsible for writing buf with a
+ * string representation of the optical power and returning the length of the
+ * data placed in buf.
+ */
+static ssize_t optical_power_show(struct device *dev,
+				  struct device_attribute *attr, char *buf)
+{
+	ssize_t len = 0;
+	/* struct opt3002 *opt3002 = dev_get_drvdata(dev); */
+
+	/*
+	 * == TASK ==
+	 * Get a reading from the sensor and use sprintf() to put a string
+	 * version into buf.
+	 */
+
+	return len;
+}
+static DEVICE_ATTR_RO(optical_power);
+
 int opt3002_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	s32 mfg_id;
+	struct opt3002 *opt3002;
+
 	dev_info(&client->dev,
 		 "In probe() for device: {name=%s, driver_data=%lu}\n",
 		 id->name, id->driver_data);
 
+	/*
+	 * Here we dynamically allocate memory for our opt3002 data structure
+	 * and initialize the members of the struct.
+	 */
+	opt3002 = devm_kzalloc(&client->dev, sizeof(*opt3002), GFP_KERNEL);
+	if (!opt3002)
+		return -ENOMEM;
+
+	opt3002->client = client;
+	opt3002->dev = &client->dev;
+	/*
+	 * dev_set_drvdata is an important function that allows a driver to set
+	 * one data pointer to contain driver specific data. Doing so allows
+	 * functions to retrieve the device data using the corresponding
+	 * dev_get_drvdata function. See the example above in
+	 * optical_power_show().
+	 */
+	dev_set_drvdata(opt3002->dev, opt3002);
+
 	mfg_id = i2c_smbus_read_word_swapped(client, OPT3002_REG_MANUFACTURER_ID);
 	if (mfg_id < 0) {
-		dev_err(&client->dev, "Failed to read manufacturer ID\n");
+		dev_err(opt3002->dev, "Failed to read manufacturer ID\n");
 		return mfg_id;
 	}
 
 	if (mfg_id != OPT3002_MANUFACTURER_ID) {
-		dev_err(&client->dev,
+		dev_err(opt3002->dev,
 			"Expected manufacturer ID 0x%04X, but read 0x%04X\n",
 			OPT3002_MANUFACTURER_ID, mfg_id);
 		return -ENODEV;
 	}
 
-	dev_info(&client->dev, "example reading: %d\n",
-		 opt3002_perform_reading(client));
+	/*
+	 * Notice that we have removed the test code that called
+	 * opt3002_perform_reading() since we will be exposing this via sysfs.
+	 */
 
-	return 0;
+	/* Create the sysfs file for reading the light sensor */
+	return device_create_file(opt3002->dev, &dev_attr_optical_power);
 }
 
 int opt3002_remove(struct i2c_client *client)
@@ -124,11 +186,12 @@ int opt3002_remove(struct i2c_client *client)
 	dev_info(&client->dev, "In remove()\n");
 
 	/*
-	 * Ensure the device is in shutdown mode by writing the "mode" bitfield
-	 * of the configuration register. We use i2c_smbus_read_word_swapped
-	 * instead of i2c_smbus_read_word_data because the device provides the most
-	 * significant byte first.
+	 * == TASK ==
+	 * The final thing that the probe function does is create the sysfs file
+	 * using device_create_file. Add a function call here to remove the
+	 * file.
 	 */
+
 	cfg_reg = i2c_smbus_read_word_swapped(client, OPT3002_REG_CONFIGURATION);
 	if (cfg_reg < 0) {
 		dev_err(&client->dev, "Failed to read config register\n");
