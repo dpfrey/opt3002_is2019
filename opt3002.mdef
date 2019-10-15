@@ -1,11 +1,4 @@
-/*
- * An MDEF file describes the content of a Linux kernel module to Legato. Any .c files listed in
- * sources will be built into the kernel module when this MDEF file is referenced by the
- * kernelModules section of an SDEF or ADEF.
- *
- * == TASK ==
- * Add the missing file to the sources list.
- */
 sources:
 {
+    opt3002.c
 }
