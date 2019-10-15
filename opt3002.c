@@ -44,11 +44,6 @@
 #define OPT3002_CFG_RN_AUTO		0xC
 
 
-/*
- * == TASK ==
- * Read through the following function and understand the code that is required
- * to perform a reading.
- */
 s32 opt3002_perform_reading(struct i2c_client *client)
 {
 	u8 exp;
@@ -116,11 +111,8 @@ int opt3002_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		return -ENODEV;
 	}
 
-	/*
-	 * == TASK ==
-	 * Use dev_info to print a single reading from the opt3002 light sensor
-	 * and observe that the value is printed when the module is loaded.
-	 */
+	dev_info(&client->dev, "example reading: %d\n",
+		 opt3002_perform_reading(client));
 
 	return 0;
 }
