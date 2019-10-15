@@ -27,17 +27,23 @@
 
 int opt3002_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
+	s32 mfg_id;
 	dev_info(&client->dev,
 		 "In probe() for device: {name=%s, driver_data=%lu}\n",
 		 id->name, id->driver_data);
 
-	/*
-	 * == TASK ==
-	 * The header file linux/i2c.h declares i2c_smbus_read_word_swapped. Use
-	 * this function to read the manufacturer ID register from the device
-	 * and verify that it matches the expected OPT3002_MANUFACTURER_ID
-	 * value. If the match fails, return errno -ENODEV.
-	 */
+	mfg_id = i2c_smbus_read_word_swapped(client, OPT3002_REG_MANUFACTURER_ID);
+	if (mfg_id < 0) {
+		dev_err(&client->dev, "Failed to read manufacturer ID\n");
+		return mfg_id;
+	}
+
+	if (mfg_id != OPT3002_MANUFACTURER_ID) {
+		dev_err(&client->dev,
+			"Expected manufacturer ID 0x%04X, but read 0x%04X\n",
+			OPT3002_MANUFACTURER_ID, mfg_id);
+		return -ENODEV;
+	}
 
 	return 0;
 }
@@ -50,7 +56,9 @@ int opt3002_remove(struct i2c_client *client)
 
 	/*
 	 * Ensure the device is in shutdown mode by writing the "mode" bitfield
-	 * of the configuration register.
+	 * of the configuration register. We use i2c_smbus_read_word_swapped
+	 * instead of i2c_smbus_read_word_data because the device provides the most
+	 * significant byte first.
 	 */
 	cfg_reg = i2c_smbus_read_word_swapped(client, OPT3002_REG_CONFIGURATION);
 	if (cfg_reg < 0) {
