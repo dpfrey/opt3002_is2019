@@ -65,16 +65,11 @@ s32 opt3002_perform_reading(struct opt3002 *opt3002)
 		(OPT3002_CFG_MODE_SINGLE_SHOT << OPT3002_CFG_MODE_SHIFT) |
 		(OPT3002_CFG_CONV_TIME_800MS << OPT3002_CFG_CONV_TIME_SHIFT) |
 		(OPT3002_CFG_RN_AUTO << OPT3002_CFG_RN_SHIFT));
-	/* We lock the mutex here before the first I2C access */
 	mutex_lock(&opt3002->mutex);
 	ret = i2c_smbus_write_word_swapped(opt3002->client,
 					   OPT3002_REG_CONFIGURATION, cfg_reg);
 	if (ret < 0) {
 		dev_err(opt3002->dev, "Failed to write config register\n");
-		/*
-		 * This used to be "return ret;", but now we need to make sure we
-		 * unlock the mutex before we return.
-		 */
 		goto done;
 	}
 
@@ -139,7 +134,6 @@ int opt3002_probe(struct i2c_client *client, const struct i2c_device_id *id)
 
 	opt3002->client = client;
 	opt3002->dev = &client->dev;
-	/* Initialize mutex */
 	mutex_init(&opt3002->mutex);
 	dev_set_drvdata(opt3002->dev, opt3002);
 
