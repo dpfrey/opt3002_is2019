@@ -3,6 +3,7 @@
 #include <linux/device.h>
 #include <linux/i2c.h>
 #include <linux/delay.h>
+#include <linux/mutex.h>
 
 /*
  * Texas Instruments OPT3002 Ambient Light Sensor driver
@@ -46,8 +47,18 @@
 struct opt3002 {
 	struct i2c_client *client;
 	struct device *dev;
+	/*
+	 * We introduce a mutex member associated with the device to prevent
+	 * simultaneous access to the device from multiple processes.
+	 */
+	struct mutex mutex;
 };
 
+/*
+ * == TASK ==
+ * Call mutex_lock() and mutex_unlock() at appropriate spots in this function to
+ * ensure that it's locked during device access.
+ */
 s32 opt3002_perform_reading(struct opt3002 *opt3002)
 {
 	u8 exp;
@@ -125,6 +136,8 @@ int opt3002_probe(struct i2c_client *client, const struct i2c_device_id *id)
 
 	opt3002->client = client;
 	opt3002->dev = &client->dev;
+	/* Initialize mutex */
+	mutex_init(&opt3002->mutex);
 	dev_set_drvdata(opt3002->dev, opt3002);
 
 	mfg_id = i2c_smbus_read_word_swapped(client, OPT3002_REG_MANUFACTURER_ID);
