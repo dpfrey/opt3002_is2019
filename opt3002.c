@@ -43,18 +43,11 @@
 						OPT3002_CFG_RN_SHIFT)
 #define OPT3002_CFG_RN_AUTO		0xC
 
-/*
- * Here we introduce a struct to hold device state
- */
 struct opt3002 {
 	struct i2c_client *client;
 	struct device *dev;
 };
 
-/*
- * Notice that the parameter to this function has changed from "struct
- * i2c_client *client" to our new device type.
- */
 s32 opt3002_perform_reading(struct opt3002 *opt3002)
 {
 	u8 exp;
@@ -103,27 +96,15 @@ s32 opt3002_perform_reading(struct opt3002 *opt3002)
 	return ((1 << exp) * 6 * frac) / 5;
 }
 
-/*
- * The DEVICE_ATTR_RO convenience macro is used below to define the necessary
- * struct that describes the read-only (RO) attribute named "optical_power". The
- * function optical_power_show must have this exact name because the
- * DEVICE_ATTR_RO(optical_power) macro initializes a struct named
- * dev_attr_optical_power with a "show" function pointer member initialized to
- * optical_power_show. This function is responsible for writing buf with a
- * string representation of the optical power and returning the length of the
- * data placed in buf.
- */
 static ssize_t optical_power_show(struct device *dev,
 				  struct device_attribute *attr, char *buf)
 {
 	ssize_t len = 0;
-	/* struct opt3002 *opt3002 = dev_get_drvdata(dev); */
-
-	/*
-	 * == TASK ==
-	 * Get a reading from the sensor and use sprintf() to put a string
-	 * version into buf.
-	 */
+	struct opt3002 *opt3002 = dev_get_drvdata(dev);
+	s32 reading = opt3002_perform_reading(opt3002);
+	if (reading < 0)
+		return reading;
+	len = sprintf(buf, "%d\n", reading);
 
 	return len;
 }
@@ -138,23 +119,12 @@ int opt3002_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		 "In probe() for device: {name=%s, driver_data=%lu}\n",
 		 id->name, id->driver_data);
 
-	/*
-	 * Here we dynamically allocate memory for our opt3002 data structure
-	 * and initialize the members of the struct.
-	 */
 	opt3002 = devm_kzalloc(&client->dev, sizeof(*opt3002), GFP_KERNEL);
 	if (!opt3002)
 		return -ENOMEM;
 
 	opt3002->client = client;
 	opt3002->dev = &client->dev;
-	/*
-	 * dev_set_drvdata is an important function that allows a driver to set
-	 * one data pointer to contain driver specific data. Doing so allows
-	 * functions to retrieve the device data using the corresponding
-	 * dev_get_drvdata function. See the example above in
-	 * optical_power_show().
-	 */
 	dev_set_drvdata(opt3002->dev, opt3002);
 
 	mfg_id = i2c_smbus_read_word_swapped(client, OPT3002_REG_MANUFACTURER_ID);
@@ -170,12 +140,6 @@ int opt3002_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		return -ENODEV;
 	}
 
-	/*
-	 * Notice that we have removed the test code that called
-	 * opt3002_perform_reading() since we will be exposing this via sysfs.
-	 */
-
-	/* Create the sysfs file for reading the light sensor */
 	return device_create_file(opt3002->dev, &dev_attr_optical_power);
 }
 
@@ -185,12 +149,7 @@ int opt3002_remove(struct i2c_client *client)
 
 	dev_info(&client->dev, "In remove()\n");
 
-	/*
-	 * == TASK ==
-	 * The final thing that the probe function does is create the sysfs file
-	 * using device_create_file. Add a function call here to remove the
-	 * file.
-	 */
+	device_remove_file(&client->dev, &dev_attr_optical_power);
 
 	cfg_reg = i2c_smbus_read_word_swapped(client, OPT3002_REG_CONFIGURATION);
 	if (cfg_reg < 0) {
