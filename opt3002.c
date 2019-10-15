@@ -46,6 +46,15 @@ void __exit opt3002_exit(void)
 }
 module_exit(opt3002_exit);
 
+/*
+ * linux/i2c.h provides a convenience macro module_i2c_driver which covers the
+ * common case where the init/exit of the module registers/deregisters an I2C
+ * driver.
+ *
+ * == TASK ==
+ * Use module_i2c_driver to remove the init/exit boilerplate.
+ */
+
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("David Frey <dfrey@sierrawireless.com>");
 MODULE_DESCRIPTION("TI opt3002 light sensor driver");
