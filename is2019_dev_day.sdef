@@ -27,6 +27,6 @@ componentSearch:
 kernelModules:
 {
     $MANGOH_ROOT/linux_kernel_modules/spisvc/spisvc
-    opt3002
-    is2019_platform
+    opt3002/opt3002
+    yellow_devices/yellow_devices
 }
