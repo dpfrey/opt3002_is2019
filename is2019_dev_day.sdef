@@ -1,0 +1,32 @@
+#include "$MANGOH_ROOT/default.sdef"
+
+apps:
+{
+    $MANGOH_ROOT/apps/DataHub/dataHub
+    {
+        maxFileBytes: 4000K
+    }
+}
+
+commands:
+{
+    dhub = dataHub:/bin/dhub
+}
+
+interfaceSearch:
+{
+    $MANGOH_ROOT/interfaces
+    $MANGOH_ROOT/apps/DataHub
+}
+
+componentSearch:
+{
+    $MANGOH_ROOT/components
+}
+
+kernelModules:
+{
+    $MANGOH_ROOT/linux_kernel_modules/spisvc/spisvc
+    opt3002
+    is2019_platform
+}
