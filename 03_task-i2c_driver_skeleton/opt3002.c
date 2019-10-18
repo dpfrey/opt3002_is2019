@@ -30,9 +30,9 @@ int opt3002_remove(struct i2c_client *client)
  * The list of I2C device IDs that are supported by this driver.
  *
  * == TASK ==
- * Add an entry to declare that this driver supports the opt3002. Hint: look at
- * linux/i2c.h to understand the types of the fields within struct
- * i2c_device_id.
+ * Add a '{ "opt3002", 0 },' entry to declare that this driver supports the
+ * opt3002. Look at linux/i2c.h if you want to understand the types of the
+ * fields within struct i2c_device_id.
  */
 static const struct i2c_device_id opt3002_id_table[] = {
 	{} /* Empty entry required to terminate the list */
