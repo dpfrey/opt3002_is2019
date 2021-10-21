@@ -55,12 +55,14 @@ struct i2c_driver opt3002_driver = {
 
 /*
  * == TASK ==
- * We have defined an I2C driver structure above, but we haven't
- * actually registered the driver with the kernel. The functions i2c_add_driver/i2c_del_driver can
- * be called in the init/exit functions to register/deregister the driver. Since this is such a
- * common pattern for I2C drivers, a convenience macro exists named module_i2c_driver. This macro
- * will generate appropriate init/exit function that performs driver registration. Use
- * module_i2c_driver to replace the explicit init/exit functions below.
+ * We have defined an I2C driver structure above, but we haven't actually
+ * registered the driver with the kernel. The functions
+ * i2c_add_driver/i2c_del_driver can be called in the init/exit functions to
+ * register/deregister the driver. Since this is such a common pattern for I2C
+ * drivers, a convenience macro exists named module_i2c_driver. This macro will
+ * generate appropriate init and exit functions that performs driver
+ * registration and deregistration. Use module_i2c_driver to replace the
+ * explicit init/exit functions below.
  */
 
 int __init opt3002_init(void)

@@ -37,6 +37,13 @@ int opt3002_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	 * this function to read the manufacturer ID register from the device
 	 * and verify that it matches the expected OPT3002_MANUFACTURER_ID
 	 * value. If the match fails, return errno -ENODEV.
+	 *
+	 * Hint: Use a "0x%04X" format string for printing a 16-bit hexadecimal
+	 * number with dev_info or dev_err functions.
+	 *
+	 * Hint: The Linux kernel headers are available under
+	 * $WP77XX_SYSROOT/usr/src/kernel/include/. The $WP77XX_SYSROOT
+	 * environment variable will only be defined within a leaf shell.
 	 */
 
 	return 0;

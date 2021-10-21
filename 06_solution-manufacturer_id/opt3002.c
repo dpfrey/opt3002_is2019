@@ -44,6 +44,8 @@ int opt3002_probe(struct i2c_client *client, const struct i2c_device_id *id)
 			OPT3002_MANUFACTURER_ID, mfg_id);
 		return -ENODEV;
 	}
+	dev_info(&client->dev, "Found correct manufacturer ID: 0x%04X\n",
+		 mfg_id);
 
 	return 0;
 }

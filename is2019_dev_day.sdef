@@ -1,3 +1,8 @@
+buildVars:
+{
+    MANGOH_ROOT=$CURDIR/../mangOH
+}
+
 #include "$MANGOH_ROOT/default.sdef"
 
 apps:
